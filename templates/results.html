@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultados del Análisis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        // Función para alternar la visibilidad del contenido del proceso
+        function toggleProcessContent(processId) {
+            const content = document.getElementById(`process-content-${processId}`);
+            const icon = document.getElementById(`toggle-icon-${processId}`);
+            
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            } else {
+                content.classList.add('hidden');
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            }
+        }
+        
+        // Función para filtrar procesos
+        function filterProcesses() {
+            const searchInput = document.getElementById('process-search').value.toLowerCase();
+            const statusFilter = document.getElementById('status-filter').value;
+            const processes = document.querySelectorAll('.process-card');
+            
+            processes.forEach(process => {
+                const processName = process.getAttribute('data-name').toLowerCase();
+                const processStatus = process.getAttribute('data-status');
+                
+                const nameMatch = processName.includes(searchInput);
+                const statusMatch = statusFilter === 'all' || processStatus === statusFilter;
+                
+                if (nameMatch && statusMatch) {
+                    process.classList.remove('hidden');
+                } else {
+                    process.classList.add('hidden');
+                }
+            });
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <header class="mb-8">
+            <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                <h1 class="text-3xl font-bold text-gray-800">Resultados del Análisis</h1>
+                <div class="flex items-center gap-2">
+                    <a href="{{ url_for('index') }}" class="inline-flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-arrow-left"></i> Analizar otro archivo
+                    </a>
+                    <button onclick="window.print()" class="inline-flex items-center gap-2 px-5 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-print"></i> Imprimir
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-4 bg-white rounded-lg shadow p-4 flex flex-col md:flex-row gap-4 justify-between items-center">
+                <div>
+                    <h5 class="text-lg font-semibold flex items-center gap-2">
+                        <i class="fas fa-clock text-blue-600"></i> Análisis completado:
+                    </h5>
+                    <p class="text-gray-600">{{ timestamp }}</p>
+                </div>
+                
+                <!-- Dashboard de resumen -->
+                <div class="flex gap-4">
+                    {% set completed = 0 %}
+                    {% set incomplete = 0 %}
+                    {% for process_name, details in processes.items() %}
+                        {% if details.end_line %}
+                            {% set completed = completed + 1 %}
+                        {% else %}
+                            {% set incomplete = incomplete + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600">{{ completed }}</div>
+                        <div class="text-sm text-gray-600">Completados</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-yellow-600">{{ incomplete }}</div>
+                        <div class="text-sm text-gray-600">Pendientes</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-red-600">{{ errors|length }}</div>
+                        <div class="text-sm text-gray-600">Errores</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Filtros y búsqueda para procesos -->
+        {% if processes %}
+        <div class="bg-white rounded-lg shadow p-4 mb-6">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-grow">
+                    <label for="process-search" class="block text-sm font-medium text-gray-700 mb-1">Buscar proceso:</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                        <input id="process-search" type="text" onkeyup="filterProcesses()" class="pl-10 block w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Nombre del proceso...">
+                    </div>
+                </div>
+                <div class="md:w-1/4">
+                    <label for="status-filter" class="block text-sm font-medium text-gray-700 mb-1">Estado:</label>
+                    <select id="status-filter" onchange="filterProcesses()" class="block w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="all">Todos</option>
+                        <option value="completed">Completados</option>
+                        <option value="incomplete">Pendientes</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Procesos -->
+        {% if processes %}
+        <div class="bg-white rounded-lg shadow mb-6 overflow-hidden">
+            <div class="bg-blue-600 text-white px-4 py-3 flex justify-between items-center">
+                <span class="font-semibold flex items-center gap-2">
+                    <i class="fas fa-cogs"></i> Seguimiento de Procesos
+                </span>
+                <span class="px-2 py-1 bg-white text-blue-600 rounded-full text-sm">
+                    {{ processes|length }}
+                </span>
+            </div>
+            <div class="p-4">
+                <div class="grid grid-cols-1 gap-4">
+                    {% for process_name, details in processes.items() %}
+                    <div class="process-card bg-white border rounded-lg shadow-sm" data-name="{{ process_name }}" data-status="{{ 'completed' if details.end_line else 'incomplete' }}">
+                        <div class="border-b px-4 py-3 cursor-pointer" onclick="toggleProcessContent('{{ loop.index }}')">
+                            <div class="flex justify-between items-center">
+                                <h5 class="font-semibold flex items-center gap-2">
+                                    <i class="fas fa-microchip text-blue-600"></i> {{ process_name }}
+                                    <span class="ml-2 px-2 py-1 text-sm rounded-full {% if details.end_line %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                        {% if details.end_line %}Completado{% else %}Pendiente{% endif %}
+                                    </span>
+                                </h5>
+                                <div class="flex items-center gap-3">
+                                    {% if details.duration %}
+                                    <span class="text-sm text-gray-600 flex items-center gap-1">
+                                        <i class="fas fa-clock"></i> {{ details.duration_formatted }}
+                                    </span>
+                                    {% endif %}
+                                    <i id="toggle-icon-{{ loop.index }}" class="fas fa-chevron-down text-gray-500"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="process-content-{{ loop.index }}" class="p-4 hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <div class="border-l-4 border-green-500 bg-green-50 p-4 rounded">
+                                        <h6 class="font-semibold flex items-center gap-2">
+                                            <i class="fas fa-play-circle text-green-600"></i> Inicio del Proceso
+                                        </h6>
+                                        <p><strong>Línea:</strong> {{ details.start_line }}</p>
+                                        <p class="text-sm text-gray-600">{{ details.start_content }}</p>
+                                        <p class="text-green-600 font-semibold mt-2">
+                                            <i class="fas fa-clock"></i> {{ details.start_time if details.start_time else 'Tiempo no disponible' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div>
+                                    {% if details.end_line %}
+                                    <div class="border-l-4 border-red-500 bg-red-50 p-4 rounded">
+                                        <h6 class="font-semibold flex items-center gap-2">
+                                            <i class="fas fa-stop-circle text-red-600"></i> Fin del Proceso
+                                        </h6>
+                                        <p><strong>Línea:</strong> {{ details.end_line }}</p>
+                                        <p class="text-sm text-gray-600">{{ details.end_content }}</p>
+                                        <p class="text-red-600 font-semibold mt-2">
+                                            <i class="fas fa-clock"></i> {{ details.end_time if details.end_time else 'Tiempo no disponible' }}
+                                        </p>
+                                    </div>
+                                    {% if details.duration %}
+                                    <div class="border-l-4 border-blue-500 bg-blue-50 p-4 rounded mt-4">
+                                        <p class="text-blue-600 font-semibold flex items-center gap-2">
+                                            <i class="fas fa-hourglass-half"></i> Duración: {{ details.duration_formatted }}
+                                        </p>
+                                    </div>
+                                    {% endif %}
+                                    {% else %}
+                                    <div class="border-l-4 border-yellow-500 bg-yellow-50 p-4 rounded">
+                                        <h6 class="font-semibold flex items-center gap-2">
+                                            <i class="fas fa-exclamation-triangle text-yellow-600"></i> Proceso sin finalizar
+                                        </h6>
+                                        <p>Este proceso no ha registrado su finalización</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Botones de acción -->
+                            <div class="flex gap-2 mb-4">
+                                <button class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm flex items-center gap-1" onclick="document.getElementById('process-logs-{{ loop.index }}').classList.toggle('hidden')">
+                                    <i class="fas fa-file-alt"></i> Ver logs
+                                </button>
+                                {% if details.errors %}
+                                <button class="px-3 py-1.5 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm flex items-center gap-1" onclick="document.getElementById('process-errors-{{ loop.index }}').classList.toggle('hidden')">
+                                    <i class="fas fa-bug"></i> Ver errores ({{ details.errors|length }})
+                                </button>
+                                {% endif %}
+                            </div>
+
+                            <!-- Contenido del proceso (logs) -->
+                            <div id="process-logs-{{ loop.index }}" class="hidden">
+                                <h6 class="font-semibold mb-3 flex items-center gap-2">
+                                    <i class="fas fa-file-alt text-gray-600"></i> Contenido Completo del Proceso
+                                    <span class="ml-2 px-2 py-1 text-sm bg-gray-200 text-gray-700 rounded-full">
+                                        {{ details.all_content|length }} líneas
+                                    </span>
+                                </h6>
+                                <div class="border rounded bg-gray-50 p-4 max-h-[300px] overflow-y-auto font-mono text-sm">
+                                    {% for line in details.all_content %}
+                                    <div class="{% if line.line_num == details.start_line %}text-green-600 font-semibold{% elif line.line_num == details.end_line %}text-red-600 font-semibold{% endif %} mb-1">
+                                        <span class="text-gray-500 mr-4">{{ line.line_num }}</span>
+                                        {{ line.content }}
+                                        {% if line.timestamp %}
+                                        <span class="text-blue-600 text-xs">[{{ line.timestamp }}]</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <!-- Errores del proceso -->
+                            {% if details.errors %}
+                            <div id="process-errors-{{ loop.index }}" class="hidden mt-6">
+                                <h6 class="font-semibold mb-3 flex items-center gap-2">
+                                    <i class="fas fa-bug text-red-600"></i> Errores durante el proceso
+                                </h6>
+                                <div class="space-y-2">
+                                    {% for error in details.errors %}
+                                    <div class="bg-red-50 border border-red-200 rounded p-3">
+                                        <div class="flex justify-between items-center">
+                                            <span>Línea {{ error.line }}</span>
+                                            <span class="px-2 py-1 bg-red-100 text-red-800 rounded text-sm">
+                                                {{ error.type|title }}
+                                            </span>
+                                        </div>
+                                        <p class="mt-2">{{ error.content }}</p>
+                                        {% if error.timestamp %}
+                                        <p class="text-sm text-gray-600 mt-2">
+                                            <i class="fas fa-clock"></i> {{ error.timestamp }}
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Errors Section -->
+        {% if errors %}
+        <div class="bg-white rounded-lg shadow mb-6 overflow-hidden">
+            <div class="bg-red-600 text-white px-4 py-3 flex justify-between items-center">
+                <span class="font-semibold flex items-center gap-2">
+                    <i class="fas fa-exclamation-triangle"></i> Errores Encontrados
+                </span>
+                <span class="px-2 py-1 bg-white text-red-600 rounded-full text-sm">
+                    {{ errors|length }}
+                </span>
+            </div>
+            <div class="p-4">
+                <!-- Filtro de errores -->
+                <div class="mb-4">
+                    <label for="error-type-filter" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por tipo:</label>
+                    <select id="error-type-filter" onchange="filterErrors()" class="w-full md:w-1/3 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500">
+                        <option value="all">Todos los errores</option>
+                        <option value="critical">Críticos</option>
+                        <option value="error">Errores</option>
+                        <option value="warning">Advertencias</option>
+                    </select>
+                </div>
+                
+                <div class="space-y-4" id="errors-container">
+                    {% for error in errors %}
+                    <div class="error-item border-l-4 {% if error.type == 'critical' %}border-red-500{% elif error.type == 'error' %}border-yellow-500{% else %}border-blue-500{% endif %} bg-white p-4 rounded shadow-sm" data-type="{{ error.type }}">
+                        <div class="flex justify-between items-start">
+                            <h6 class="text-gray-700 mb-2 flex items-center gap-2">
+                                <i class="fas {% if error.type == 'critical' %}fa-skull{% elif error.type == 'error' %}fa-exclamation-circle{% else %}fa-info-circle{% endif %} {% if error.type == 'critical' %}text-red-600{% elif error.type == 'error' %}text-yellow-600{% else %}text-blue-600{% endif %}"></i>
+                                Línea {{ error.line }}
+                            </h6>
+                            <span class="px-2 py-1 text-sm rounded-full {% if error.type == 'critical' %}bg-red-100 text-red-800{% elif error.type == 'error' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                                {{ error.type|title }}
+                            </span>
+                        </div>
+                        <p class="font-semibold">{{ error.description }}</p>
+                        <p class="mt-2">
+                            <span class="text-sm text-gray-600">Impacto: {{ error.impact }}</span>
+                            {% if error.timestamp %}
+                            <br>
+                            <span class="text-sm text-gray-600">
+                                <i class="fas fa-clock"></i> {{ error.timestamp }}
+                            </span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            function filterErrors() {
+                const typeFilter = document.getElementById('error-type-filter').value;
+                const errors = document.querySelectorAll('.error-item');
+                
+                errors.forEach(error => {
+                    const errorType = error.getAttribute('data-type');
+                    
+                    if (typeFilter === 'all' || errorType === typeFilter) {
+                        error.classList.remove('hidden');
+                    } else {
+                        error.classList.add('hidden');
+                    }
+                });
+            }
+        </script>
+        {% endif %}
+
+        <!-- Process Errors -->
+        {% if process_errors %}
+        <div class="bg-white rounded-lg shadow mb-6 overflow-hidden">
+            <div class="bg-yellow-500 text-white px-4 py-3 flex justify-between items-center">
+                <span class="font-semibold flex items-center gap-2">
+                    <i class="fas fa-exclamation-triangle"></i> Errores de Proceso
+                </span>
+                <span class="px-2 py-1 bg-white text-yellow-800 rounded-full text-sm">
+                    {{ process_errors|length }}
+                </span>
+            </div>
+            <div class="p-4">
+                <div class="space-y-2">
+                    {% for error in process_errors %}
+                    <div class="bg-yellow-50 text-yellow-800 p-3 rounded">
+                        {{ error }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <footer class="mt-8 text-center text-gray-500 text-sm">
+            <p>Análisis generado {{ timestamp }}</p>
+        </footer>
+    </div>
+</body>
+</html>
